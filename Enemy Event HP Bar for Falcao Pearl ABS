@@ -1,0 +1,107 @@
+#===============================================================================
+# * Falcao Pearl ABS Liquid v3 Enemy HP Bar Addons
+#-------------------------------------------------------------------------------
+# Author  : IneptAttorney
+# Date    : 12 September 2022
+#           - Updated 24 June 2024
+# Engine  : RPG Maker VX Ace
+# Required: Falcao Pearl ABS Liquid v3
+#-------------------------------------------------------------------------------
+# * Description
+#   This script allows you to display the enemy's HP Bar on the map.
+#-------------------------------------------------------------------------------
+# * How to Use
+#   Put this script below Falcao Pearl ABS scripts.
+#
+#   <y offset: x>
+#   Use this notetag in Enemy database to increase the y value of the HP Bar.
+#   For tall characters, you need higher y value of HP bar, that means you should
+#   decrease the height of the HP Bar, for example <y offset: -32> the HP bar
+#   will be 32 pixels higher than default.
+#-------------------------------------------------------------------------------
+# * Terms of Use
+#   Free for commercial and non-commercial project.
+#   Give credit to IneptAttorney to your project.
+#===============================================================================
+
+#===============================================================================
+module IA
+  module EVENT_BAR
+    
+    #---------------------------------------------
+    # Turn on this switch to disable the HP bar. Set to 0 if you want the HP bar
+    # to always show.
+    DIS_SWITCH = 0
+    
+    #---------------------------------------------
+    # Set the colors of gauge here!
+    # Format  = Color.new(  R,  G, B)
+    HP_COLOR1 = Color.new(255,170,51)
+    HP_COLOR2 = Color.new(255,119,50)
+#-------------------------------------------------------------------------------
+  end
+end
+#===============================================================================
+class Spriteset_Map
+
+  alias ia_hp_bar_create_characters create_characters
+  def create_characters
+    ia_hp_bar_create_characters
+    $game_map.events.values.each do |enemy|
+      @character_sprites.push(Sprite_EventBar.new(@viewport1, enemy))
+    end
+  end
+  
+end
+#===============================================================================
+class Sprite_EventBar < Sprite
+  def initialize(viewport,character)
+    super(viewport)
+    @character = character
+    @old_hp = 0
+    @off_y = 0
+    setup_y_offset
+    update
+  end
+  
+  def dispose
+    bitmap.dispose if bitmap
+    super
+  end
+ 
+  def battler
+    return @character.battler
+  end
+ 
+  def update
+    super
+    update_gauge unless battler.nil?
+    update_position
+  end
+ 
+  def update_gauge
+    return if IA::EVENT_BAR::DIS_SWITCH > 0 && $game_switches[IA::EVENT_BAR::DIS_SWITCH] == true
+    return if battler.hp == @old_hp
+    hp_color1 = IA::EVENT_BAR::HP_COLOR1
+    hp_color2 = IA::EVENT_BAR::HP_COLOR2
+    b_width = 1 + (28 * battler.hp_rate)
+    self.bitmap = Bitmap.new(30,5)
+    if battler.hp_rate != 1
+      self.bitmap.fill_rect(0,0,30,5,Color.new(0,0,0,150)) if battler.hp_rate > 0
+      self.bitmap.gradient_fill_rect(1, 1, b_width, 3, hp_color1, hp_color2)
+    end
+    @old_hp = battler.hp
+  end
+  
+  def setup_y_offset
+    return unless battler
+    if battler.enemy.note =~ /<y offset:\s(.*)>/i
+      @off_y = $1.to_i
+    end
+  end
+ 
+  def update_position
+    self.x = @character.screen_x - 16
+    self.y = @character.screen_y - 38 + @off_y
+  end
+end # End
