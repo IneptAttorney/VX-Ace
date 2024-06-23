@@ -1,0 +1,243 @@
+#===============================================================================
+# * Falcao Pearl ABS Liquid v3 Iconset Addons
+#-------------------------------------------------------------------------------
+# Author  : IneptAttorney
+# Date    : 15 August 2020
+#           - Updated 23 June 2024
+# Engine  : RPG Maker VX Ace
+# Required: - Falcao Pearl ABS Liquid v3
+#           - Sixth Direction by Animation (optional)
+#-------------------------------------------------------------------------------
+# * Description
+#   By default, Falcao Pearl ABS has the Iconset feature instead of the Graphics
+#   Tool. But the weakness of this feature is that the Iconset is displayed only
+#   from the Icon item itself.
+#   This script allows you to set the User Iconset and Projectile Iconset with
+#   the Icon you want.
+#   You can also set the User Icon graphic with the current icon index of weapon
+#   that the actor equip.
+#-------------------------------------------------------------------------------
+# * Important!
+#   If you have Sixth's Bug Fixes for Falcao's Pearl ABS Liquid v3 please put
+#   this script above it.
+#-------------------------------------------------------------------------------
+# * How to Use
+#   in the note box in the database Item/Skill/Weapon/Armor add notetag:
+#   ================
+#   <user_icon: x>         <-- for User Graphic
+#   <projectile_icon: x>   <-- for Tool Graphic
+#   ================
+#   replace x with icon index.
+#   Don't forget to use the User Iconset or Projectile Iconset notetag.
+#   You can use the 2 notes at once.
+#   You can replace x with -1 to show actor's weapon icon or -2 to show actor's
+#   shield icon.
+#
+#   For example:
+#   User Iconset = animated
+#   <user_icon: 12>
+#   These notetags will set the tool user iconset to icon 12.
+#
+#   User Iconset = animated
+#   <user_icon: -1>
+#   These notetags will set the tool user iconset to actor's weapon icon index.
+#
+#   User Iconset = static
+#   <user_icon: -2>
+#   These notetags will set the tool user iconset to actor's shield icon index.
+#-------------------------------------------------------------------------------
+# * Terms of Use
+#   Free for commercial and non-commercial project.
+#   Give credit to IneptAttorney to your project.
+#===============================================================================
+module IA
+  module PEARLICONSET
+    #------------------------------------------------------------
+    # * Regular Expression
+    #------------------------------------------------------------
+    REGEX = /<user_icon:\s(.*)>/i
+    REGEX2 = /<projectile_icon:\s(.*)>/i
+  end
+end
+#===============================================================================
+module PearlKernel
+#===============================================================================
+ 
+  #--------------------------------------------------------------
+  # * Rewrite method: PearlKernel.check_iconset
+  #--------------------------------------------------------------
+  def self.check_iconset(user, item, tag, object)
+    if $imported["SixthABSAnimEX"] #compatible with Sixth's DIrection by animation
+      data = item.tool_data(tag, false)
+      case tag
+      when "User Iconset = "
+        naote = IA::PEARLICONSET::REGEX
+      when "Projectile Iconset = "
+        naote = IA::PEARLICONSET::REGEX2
+      end
+      return if data.nil?
+      if item.note =~ naote
+        if $1.to_i == -1 && user.battler.equips[0]
+          if user.battler.equips[0].note =~ naote
+            iid = $1.to_i
+          else
+            iid = user.battler.equips[0].icon_index
+          end
+        elsif $1.to_i == -2 && user.battler.equips[1]
+          if user.battler.equips[1].note =~ naote
+            iid = $1.to_i
+          else
+            iid = user.battler.equips[1].icon_index
+          end
+        else
+          iid = $1.to_i
+        end
+        v = [iid, data.to_sym] if data == "animated" ||
+        data == "static" || data == "shielding" || ABSAnimEX::IconAnims.include?(data)
+      else
+        v = [item.icon_index, data.to_sym] if data == "animated" ||
+        data == "static" || data == "shielding" || ABSAnimEX::IconAnims.include?(data)
+      end
+      object.is_a?(Projectile) ? object.pro_iconset = v : object.user_iconset = v
+    else
+      data = item.tool_data(tag, false)
+      case tag
+      when "User Iconset = "
+        naote = IA::PEARLICONSET::REGEX
+      when "Projectile Iconset = "
+        naote = IA::PEARLICONSET::REGEX2
+      end
+      return if data.nil?
+      if item.note =~ naote
+        if $1.to_i == -1 && user.battler.equips[0]
+          if user.battler.equips[0].note =~ naote
+            iid = $1.to_i
+          else
+            iid = user.battler.equips[0].icon_index
+          end
+        elsif $1.to_i == -2 && user.battler.equips[1]
+          if user.battler.equips[1].note =~ naote
+            iid = $1.to_i
+          else
+            iid = user.battler.equips[1].icon_index
+          end
+        else
+          iid = $1.to_i
+        end
+        v = [iid, data.to_sym] if data == "animated" ||
+        data == "static" || data == "shielding"
+      else
+        v = [item.icon_index, data.to_sym] if data == "animated" ||
+        data == "static" || data == "shielding"
+      end
+      object.is_a?(Projectile) ? object.pro_iconset = v : object.user_iconset = v
+    end
+    
+  end
+
+end #end
+#-------------------------------------------------------------------------------
+#  * Overwrite
+#-------------------------------------------------------------------------------
+class Anime_Obj < Game_Character
+  attr_accessor :draw_it, :destroy_it, :item, :user, :original_speed
+  attr_reader   :custom_graphic
+  def initialize(user, item)
+    super()
+    PearlKernel.load_item(item)
+    @draw_it = false
+    @destroy_it = false
+    @item = item
+    @user = user
+    @custom_graphic = false
+    graphic = PearlKernel.user_graphic
+    if graphic.split(" ").include?('custom') 
+      graphic = graphic.sub("custom ","")
+      @custom_graphic = true
+      user.transparent = true
+      user.using_custom_g = true
+    end
+    @character_name = graphic
+    moveto(@user.x, @user.y)
+    set_direction(@user.direction)
+    @original_speed = PearlKernel.user_animespeed
+    
+    #patch
+    PearlKernel.check_iconset(user, @item, "User Iconset = ", self)
+    @character_name = "" if @user_iconset != nil
+  end
+end
+
+#-------------------------------------------------------------------------------
+#  * Overwrite
+#-------------------------------------------------------------------------------
+class Projectile < Game_Character
+  def load_item_data
+    @character_name = PearlKernel.tool_graphic
+    if @character_name == "nil"
+      @character_name = @user.character_name 
+      @transparent = true
+    end
+    @character_index      = PearlKernel.tool_index
+    @tool_size            = PearlKernel.tool_size
+    @tool_distance        = PearlKernel.tool_distance
+    @tool_effect_delay    = PearlKernel.tool_effectdelay
+    @tool_destroy_delay   = PearlKernel.tool_destroydelay
+    @move_speed           = PearlKernel.tool_speed
+    @tool_blow_power      = PearlKernel.tool_blowpower
+    @tool_piercing        = PearlKernel.tool_piercing
+    @tool_piercing        = PearlKernel.tool_piercing == "true"
+    @tool_end_anime       = PearlKernel.tool_animation
+    if @tool_end_anime.split(" ").include?('delay')
+      @tool_end_anime = @tool_end_anime.sub("delay ","").to_i
+    end
+    @tool_animerepeat     = PearlKernel.tool_anirepeat == "true"
+    @tool_invoke = PearlKernel.tool_invoke
+    @tool_guardrate = PearlKernel.tool_guardrate
+    @tool_knockdownrate = PearlKernel.tool_knockdown
+    @tool_selfdamage = PearlKernel.tool_selfdamage == "true"
+    @tool_hitshake = PearlKernel.tool_hitshake == "true"
+    sound = PearlKernel.tool_soundse
+    RPG::SE.new(sound, 80).play rescue nil # SOUND
+    @original_distance = @tool_distance
+    @mnganime = 0
+    if @customsteps != nil
+      @pattern = 0
+      @tool_distance = @customsteps
+      @pattern = 1 if @customsteps + 1 == @original_distance
+      @transparent = true if @customsteps == 0
+      @user.battler_chain.push(self)
+    end
+    @tool_retracting = false
+    if @tool_special == "area" and @target_effect[0]
+      @user.turn_toward_character(@target_effect[1])
+      moveto(@target_effect[1].x, @target_effect[1].y)
+    end
+    @originaldestory_delay = @tool_destroy_delay
+    @priority_type = PearlKernel.tool_priority
+    if @tool_special == "spiral"
+      @spintimer = 0
+      @dir_was = @user.direction
+      moveto(@user.x + @user.adjustcxy[0], @user.y + @user.adjustcxy[1]) if
+      !@user.facing_corners?
+      @spintimes = @tool_distance
+      @tool_distance = 0
+      @user.making_spiral = true
+    end
+    
+    PearlKernel.check_iconset(@user, @item, "Projectile Iconset = ", self)
+    
+    @character_name = "" if @pro_iconset != nil
+    
+    @pick_able = @item.note.include?('<pick up>')
+    @ignore_followers = @item.note.include?('<ignore_followers>')
+    if @tool_special != "shield" and !@item.note.include?('<ignore_voices>')
+      voices = PearlKernel.voices(@user.battler)
+      RPG::SE.new(voices[rand(voices.size)], 80).play unless voices.nil?
+    end
+    apply_item_transform if @item.is_a?(RPG::Weapon) || @item.is_a?(RPG::Armor)
+  end
+end
+#===============================================================================
+# * End of Pearl ABS Iconset Addons
+#===============================================================================
