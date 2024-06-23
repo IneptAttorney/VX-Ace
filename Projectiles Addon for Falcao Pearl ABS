@@ -1,0 +1,142 @@
+#===============================================================================
+# * Falcao Pearl ABS Liquid v3 Projectiles Addons
+#-------------------------------------------------------------------------------
+# Author  : IneptAttorney
+# Date    : 24 June 2024
+# Engine  : RPG Maker VX Ace
+# Required: - Falcao Pearl ABS Liquid v3
+#-------------------------------------------------------------------------------
+# * Description
+#   This script add some new features to Projectiles in your game.
+#-------------------------------------------------------------------------------
+# * Important!
+#   If you have Sixth's Bug Fixes for Falcao's Pearl ABS Liquid v3 please put
+#   this script below it.
+#-------------------------------------------------------------------------------
+# * How to Use
+#   Put these notetags in the tool that you want to setup.
+#   #=================
+#   <once hit>
+#   Tool with this notetag will not damage the same target twice.
+# 
+#   If you are using common event to determine the movement of the projectile,
+#   you can use this script movement to control the projectile damage
+#   stop_damage -> to stop the projectile from dealing damage
+#   start_damage -> to continue the projectile from dealing damage after being
+#                   stopped.
+#   reset_target -> to reset the target that this projectile has hit.
+#   #=================
+#   <stop at: x>
+#   Replacse x with the number that you want this tool to stop dealing damage.
+#   For example: 
+#   you have a tool with Tool Destroy Delay = 60
+#   and you put <stop at: 20>
+#   then this tool will not deal any damage when it only has 20 frames before
+#   destroyed.
+#   #=================
+#   <pop start: x>
+#   Use this notetag to make the projectile popping up at the begining.
+#   Replace the x with the duration of the pop up.
+#   #=================
+#   <fading: x>
+#   Use this notetag to make the projectile fading before destroyed.
+#   Replace the x with the fading duration.
+#   #=================
+#   <minimize: x>
+#   Use this notetag to make the projectile shrink before destroyed.
+#   Replace the x with the shrinking duration.
+#   #=================
+#   <maximize: x>
+#   Use this notetag to make the projectile swell before destroyed.
+#   Replace the x with the swelling duration.
+#-------------------------------------------------------------------------------
+# * Terms of Use
+#   Free for commercial and non-commercial project.
+#   Give credit to IneptAttorney to your project.
+#===============================================================================
+
+#===============================================================================
+# * Class Projectile
+#===============================================================================
+class Projectile < Game_Character
+   
+  #---------------------------------------------------------------
+  # alias method: load_item_data
+  #---------------------------------------------------------------
+  alias ia_proj_load_item_data load_item_data
+  def load_item_data
+    ia_proj_load_item_data
+    @executed_target = []
+    @pop_count = 0
+    if @item.note =~ /<pop start:\s(.*)>/i
+      @zoomfx_x = 0.0
+      @zoomfx_y = 0.0
+      @pop_count = $1.to_i
+    end
+    @no_damage = false
+    if @item.note =~ /<stop at:\s(.*)>/i
+      @stop_delay = $1.to_i
+    else
+      @stop_delay = 0
+    end
+  end
+  #---------------------------------------------------------------
+  # alias method: execute_damage
+  #---------------------------------------------------------------
+  alias ia_proj_execute_damage execute_damage
+  def execute_damage(target)
+    return if @executed_target.include?(target) && @item.note =~ /<once hit>/i
+    return if @no_damage
+    @executed_target.push(target).uniq! if @item.note =~ /<once hit>/i
+    ia_proj_execute_damage(target)
+  end
+  
+  alias ia_proj_update_timer update_timer
+  def update_timer
+    if @pop_count > 0
+      count = (1.0 / @pop_count)
+      @zoomfx_x += count 
+      @zoomfx_y += count 
+      if @zoomfx_x >= 1.0 && @zoomfx_y >= 1.0
+        @zoomfx_x = 1.0; @zoomfx_y = 1.0
+        @pop_count = 0
+      end
+    end
+    ia_proj_update_timer
+    if @stop_delay > 0 && @no_damage == false
+      @no_damage = true if @tool_destroy_delay == @stop_delay
+    end
+    if @item.note =~ /<fading:\s(.*)>/i
+      count = (255 / $1.to_i).to_i
+      @opacity -= count if @tool_destroy_delay <= $1.to_i
+    end
+    if @item.note =~ /<minimize:\s(.*)>/i
+      count = (1.0 / $1.to_i)
+      @zoomfx_x -= count if @tool_destroy_delay <= $1.to_i
+      @zoomfx_y -= count if @tool_destroy_delay <= $1.to_i
+    elsif @item.note =~ /<maximize:\s(.*)>/i
+      count = (1.0 / $1.to_i)
+      @zoomfx_x += count if @tool_destroy_delay <= $1.to_i
+      @zoomfx_y += count if @tool_destroy_delay <= $1.to_i
+    end
+  end
+  #---------------------------------------------------------------
+  # new method: Stop Damage
+  #---------------------------------------------------------------
+  def stop_damage
+    @no_damage = true
+  end
+  #---------------------------------------------------------------
+  # new method: Start Damage
+  #---------------------------------------------------------------
+  def start_damage
+    @no_damage = false
+  end
+  #---------------------------------------------------------------
+  # new method: Reset Target
+  #---------------------------------------------------------------
+  def reset_target
+    @executed_target = []
+  end
+  
+end
