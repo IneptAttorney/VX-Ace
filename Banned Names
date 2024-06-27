@@ -1,0 +1,88 @@
+#===============================================================================
+# * Banned Names
+#-------------------------------------------------------------------------------
+# Author   : IneptAttorney
+# Date     : 27 June 2024
+# Engine   : RPG Maker VX Ace
+# Required : -
+#-------------------------------------------------------------------------------
+# * Description
+#   This script allows you to ban some names in name input command.
+#   can be used to ban inappropriate names.
+#-------------------------------------------------------------------------------
+# * How to Use
+#   Set the configuration below.
+#-------------------------------------------------------------------------------
+# * Terms of Use
+#   Free for commercial and non-commercial project.
+#   Give credit to IneptAttorney to your project.
+#===============================================================================
+
+#===============================================================================
+
+module IA
+  module BAD_WORDS
+    
+    #--------------------------------------------------------------
+    # This is the message shown when player named using banned words.
+    TEXT = "You cannot use that name!"
+    
+    #--------------------------------------------------------------
+    # List the banned words here.
+    # Don't forget that capital letters matter.
+    # Banned word also works inside the name, for example "Hat" is banned,
+    # so you cannot name your character "My Hat" because there is "Hat" in it.
+    BAD_NAMES = [
+                 "Hat", 
+                 "Bad", 
+                 "No"
+    ]
+  end
+end
+#===============================================================================
+# * Scene_Name
+#===============================================================================
+class Scene_Name < Scene_MenuBase
+  
+  def start
+    super
+    @actor = $game_actors[@actor_id]
+    @edit_window = Window_NameEdit.new(@actor, @max_char)
+    @input_window = Window_NameInput.new(@edit_window)
+    @input_window.set_handler(:ok, method(:on_input_ok))
+    @warning_window = Window_Base.new(160,Graphics.height/2-24,320,48)
+    @warning_window.viewport = @viewport
+    @warning_window.openness = 0
+    @count = 0
+  end
+
+  def update
+    super
+    if @count > 0
+      @count -= 1
+      close_warn_window if @count == 0
+    end
+  end
+  
+  def close_warn_window
+    @warning_window.contents.clear
+    @warning_window.close
+  end
+  
+  def on_input_ok
+    IA::BAD_WORDS::BAD_NAMES.each do |badname|
+      if @edit_window.name.include?(badname)
+        return show_bad_names 
+      end
+    end
+    @actor.name = @edit_window.name
+    return_scene
+  end
+  
+  def show_bad_names
+    @warning_window.open
+    @warning_window.draw_text(0,0,320,24,IA::BAD_WORDS::TEXT,1)
+    @count = 120
+  end
+  
+end
