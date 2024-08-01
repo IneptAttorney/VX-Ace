@@ -1,0 +1,219 @@
+#===============================================================================
+# * Falcao Pearl ABS Liquid v3 Cast Bar Addon
+#-------------------------------------------------------------------------------
+# Author  : IneptAttorney
+# Date    : 01 August 2024
+# Engine  : RPG Maker VX Ace
+# Required: - Falcao Pearl ABS Liquid v3
+#-------------------------------------------------------------------------------
+# * Description
+#   This script allow you to show the Casting Duration of an enemy in map.
+#-------------------------------------------------------------------------------
+# * Important!
+#   If you have Sixth's Stat Bonus Addon for Falcao's Pearl ABS Liquid v3 please 
+#   put this script below it.
+#-------------------------------------------------------------------------------
+# * How to Use
+#   This script is a plug and play.
+#   You can set switch configuration below.
+#-------------------------------------------------------------------------------
+# * Terms of Use
+#   Free for commercial and non-commercial project.
+#   Give credit to IneptAttorney to your project.
+#===============================================================================
+$imported = {} if $imported.nil?
+$imported["InAttrABSCastAddon"] = true
+module IA
+  module PEARL_ABS_CAST_BAR
+    
+    #------------------------------------------------------
+    # Turn this switch on to hide the player Casting Bar.
+    PLAYER_SWITCH = 21
+    
+    #------------------------------------------------------
+    # Turn this switch on to hide the event Casting Bar.
+    EVENT_SWITCH  = 20
+    
+  end
+end
+#===============================================================================
+
+#===============================================================================
+# * Sprite_CastBar
+#===============================================================================
+class Sprite_CastBar < Sprite
+  def initialize(viewport, character)
+    super(viewport)
+    @character = character
+  end
+  
+  def dispose
+    bitmap.dispose if bitmap
+    super
+  end
+  
+  def update
+    super
+    update_casting
+    update_position
+  end
+  
+  def character
+    @character
+  end
+  
+  def battler
+    @character.user.battler
+  end
+  
+  def update_casting
+    if battler.is_a?(Game_Enemy) && battler.dead?
+      return @character.destroy_it
+    end
+    create_gauge
+  end
+  
+  def create_gauge
+    self.opacity = 255 if self.opacity != 255
+    bar_color1 = Color.new(255,255,255)
+    self.bitmap = Bitmap.new(30,24)
+    sid = character.user.is_a?(Game_Player) ? IA::PEARL_ABS_CAST_BAR::PLAYER_SWITCH : IA::PEARL_ABS_CAST_BAR::EVENT_SWITCH
+    return if $game_switches[sid] == true
+    b_width = 1 + 28 * @character.user.cast_rate
+    self.bitmap.fill_rect(0,0,30,5,Color.new(0,0,0,150)) 
+    self.bitmap.fill_rect(1, 1, b_width, 3, bar_color1)
+  end
+  
+  def update_position
+    if @character.user.cast_rate == 0.0
+      return @character.destroy_it = true
+    end
+    self.x = @character.user.screen_x - 16
+    self.y = @character.user.screen_y
+  end
+  
+end
+#===============================================================================
+# * Spriteset_Map
+#===============================================================================
+class Spriteset_Map
+  alias ia_castbar_sprite_init initialize
+  def initialize
+    create_cast_bar
+    ia_castbar_sprite_init
+  end
+  
+  alias ia_castbar_sprite_update update
+  def update
+    update_cast_bar
+    ia_castbar_sprite_update
+  end
+  
+  alias ia_castbar_sprite_dispose dispose
+  def dispose
+    dispose_cast_bar
+    ia_castbar_sprite_dispose
+  end
+  
+  def create_cast_bar
+    @cast_sprites = []
+    $game_player.cast_action.each do |enemy|
+      @cast_sprites.push(Sprite_CastBar.new(@viewport2, enemy))
+    end
+  end
+  
+  def dispose_cast_bar
+    @cast_sprites.each {|sprite| sprite.dispose }
+  end
+  
+  def update_cast_bar
+    @cast_sprites.each {|s| s.update if !s.disposed?
+    unless $game_player.cast_action.include?(s.character)
+      s.dispose
+      @cast_sprites.delete(s)
+      $game_player.cast_action.delete(s.character)
+    end
+    }
+    $game_player.cast_action.each do |cast|
+      unless cast.draw_it
+        @cast_sprites.push(Sprite_CastBar.new(@viewport2, cast))
+        cast.draw_it = true
+      end
+      if cast.destroy_it
+        @cast_sprites.each {|i|
+        if i.character.is_a?(Cast_Obj) and i.character.destroy_it
+          i.dispose
+          @cast_sprites.delete(i)
+        end
+        }
+        $game_player.cast_action.delete(cast)
+      end
+    end
+  end
+  
+end
+#===============================================================================
+# * Game_CharacterBase
+#===============================================================================
+class Game_CharacterBase
+  
+  def cast_rate
+    return 0.0 unless @user_casting
+    return 0.0 if @user_casting[0] == 0
+    PearlKernel.load_item(@user_casting[1])
+    if $imported["SixthABSStatAddon"]
+      cy = PearlKernel.tool_castime(battler)
+    else  
+      cy = PearlKernel.tool_castime
+    end
+    return @user_casting[0].to_f / cy
+  end
+  
+  alias ia_castbar_character_process process_tool_action
+  def process_tool_action(item)
+    ia_castbar_character_process(item)
+    if @user_casting[0] > 0
+      create_cast_object(item)
+    end
+  end
+  
+  def create_cast_object(item)
+    $game_player.cast_action.each {|i|
+      if i.user == self
+        $game_player.cast_action.delete(i)
+      end}
+    $game_player.cast_action.push(Cast_Obj.new(self,item))
+  end
+  
+end
+#===============================================================================
+# * Game_Player
+#===============================================================================
+class Game_Player < Game_Character
+  attr_accessor :cast_action
+  alias ia_castbar_player_initialize initialize
+  def initialize
+    @cast_action = []
+    ia_castbar_player_initialize
+  end
+end
+#===============================================================================
+# * Cast_Obj
+#===============================================================================
+class Cast_Obj < Game_Character
+  attr_accessor :draw_it, :destroy_it, :item, :user
+  def initialize(user, item)
+    super()
+    @draw_it = false
+    @destroy_it = false
+    @item = item
+    @user = user
+    moveto(@user.x, @user.y)
+    set_direction(@user.direction)
+  end
+  
+  def battler
+    @user.battler
+  end
+  
+end
