@@ -1,0 +1,74 @@
+#===============================================================================
+# * Slip Damage on Action
+#-------------------------------------------------------------------------------
+# Author   : IneptAttorney
+# Date     : 27 August 2024
+# Engine   : RPG Maker VX Ace
+# Required : Yanfly Ace Battle Engine (Optional)
+#-------------------------------------------------------------------------------
+# * Description
+#   This script allows you to set a state that deals damage after the user doing
+#   doing action (using skills or items).
+#   This script works with Yanfly Battle Damage Pop Up. so make sure to put this 
+#   script below every battle scripts.
+#-------------------------------------------------------------------------------
+# * How to Use
+#   Put this notetag in the note section of the state.
+#  
+#   <action damage: x>
+#  
+#   Replace the x with the amount of the damage you want to.
+#   
+#   For example:
+#   
+#   <action damage: 100>
+#   This means the user took 100 damage whenever they do any action.
+#   
+#   <action damage: self.mhp * 0.1>
+#   This means the user took 10% of their max hp damage whenever they do any
+#   action.
+#-------------------------------------------------------------------------------
+# * Terms of Use
+#   Free for commercial and non-commercial project.
+#   Give credit to IneptAttorney to your project.
+#===============================================================================
+
+#===============================================================================
+class Game_Battler < Game_BattlerBase
+  
+  alias ia_damageonactinit initialize
+  def initialize
+    @action_triggered = false
+    ia_damageonactinit
+  end
+  
+  alias ia_damageonactuseitem use_item
+  def use_item(item)
+    @action_triggered = true
+    ia_damageonactuseitem(item)
+  end
+  
+  alias ia_damageonact_onactionend on_action_end
+  def on_action_end
+    ia_damageonact_onactionend
+    apply_state_damage_action if @action_triggered == true
+    if $imported["YEA-BattleEngine"]
+      return unless alive?
+      make_damage_popups(self)
+    end
+  end
+  
+  def apply_state_damage_action
+    states.each do |state|
+      if state.note =~ /<action damage:\s(.*)>/i
+        base = eval($1)
+        damage = base.to_i
+        perform_map_damage_effect if $game_party.in_battle && damage > 0
+        @result.hp_damage = [damage, max_slip_damage].min
+        self.hp -= @result.hp_damage
+      end
+    end
+    @action_triggered = false
+  end
+  
+end
