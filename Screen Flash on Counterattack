@@ -1,0 +1,63 @@
+#===============================================================================
+# * Screen Flash on Counterattack
+#-------------------------------------------------------------------------------
+# Author   : IneptAttorney
+# Date     : 23 February 2025
+# Engine   : RPG Maker VX Ace
+# Required : -
+#-------------------------------------------------------------------------------
+# * Description
+#   This script allows you to flash the battle screen whenever any battler does
+#   counterattack or magic reflection.
+#-------------------------------------------------------------------------------
+# * How to Use
+#   Put this script above all other scripts below ▼ Materials
+#-------------------------------------------------------------------------------
+# * Terms of Use
+#   Free for commercial and non-commercial project.
+#   Give credit to IneptAttorney to your project.
+#===============================================================================
+#                          Configuration Section
+#===============================================================================
+module IA
+  module FLASH_COUNTER
+    #---------------------------------------------------------------------
+    # Set the color, opacity and duration of the screen flash whenever the
+    # battler does counterattack.
+    #                Color.new(R,     G,   B, opa), duration]
+    FLASH_COUNTER = [Color.new(255, 255, 255, 255),       60]
+    
+    #---------------------------------------------------------------------
+    # Set the color, opacity and duration of the screen flash whenever the
+    # battler does magic reflection.
+    #                Color.new(R,     G,   B, opa), duration]
+    FLASH_REFLECT = [Color.new( 10, 155, 255, 255),       60]
+    
+  end
+end
+#===============================================================================
+
+#===============================================================================
+class Window_BattleLog < Window_Selectable
+#===============================================================================
+  #--------------------------------------------------------------------------
+  # * Display Counterattack
+  #--------------------------------------------------------------------------
+  def display_counter(target, item)
+    Sound.play_evasion
+    add_text(sprintf(Vocab::CounterAttack, target.name))
+    $game_troop.screen.start_flash(IA::FLASH_COUNTER::FLASH_COUNTER[0],IA::FLASH_COUNTER::FLASH_COUNTER[1])
+    wait
+    back_one
+  end
+  #--------------------------------------------------------------------------
+  # * Display Reflection
+  #--------------------------------------------------------------------------
+  def display_reflection(target, item)
+    Sound.play_reflection
+    add_text(sprintf(Vocab::MagicReflection, target.name))
+    $game_troop.screen.start_flash(IA::FLASH_COUNTER::FLASH_REFLECT[0],IA::FLASH_COUNTER::FLASH_REFLECT[1])
+    wait
+    back_one
+  end
+end # Window_BattleLog
